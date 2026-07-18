@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#061326">
+  <meta name="robots" content="noindex,nofollow">
+  <title>SIMPAN IPDN</title>
+  <link rel="icon" href="./logo.svg" type="image/svg+xml">
+  <style>
+    :root{color-scheme:dark;--bg:#061326;--bg-deep:#030b16;--surface:rgba(10,28,52,.94);--border:rgba(255,255,255,.12);--text:#f8fbff;--muted:#a9b9ce;--primary:#3b8df2}
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:radial-gradient(circle at 12% 0%,rgba(48,124,255,.24),transparent 34%),linear-gradient(160deg,var(--bg),var(--bg-deep));font-family:Arial,Helvetica,sans-serif;color:var(--text)}
+    .app-shell{position:fixed;inset:0;display:grid;background:var(--bg-deep)}
+    .app-frame{width:100%;height:100%;border:0;display:block;background:var(--bg-deep)}
+    .loading-screen{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 0%,rgba(59,141,242,.25),transparent 35%),linear-gradient(160deg,var(--bg),var(--bg-deep));transition:opacity .25s ease,visibility .25s ease}
+    .loading-screen.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+    .loading-card{width:min(420px,100%);padding:30px;border:1px solid var(--border);border-radius:24px;text-align:center;background:var(--surface);box-shadow:0 24px 80px rgba(0,0,0,.38);backdrop-filter:blur(16px)}
+    .brand-logo{width:76px;height:76px;margin:0 auto 18px;display:block;object-fit:contain;border-radius:20px;box-shadow:0 16px 38px rgba(39,100,216,.35)}
+    .loading-title{margin:0;font-size:1.45rem;line-height:1.2}
+    .loading-copy{margin:9px 0 20px;color:var(--muted);line-height:1.55}
+    .loader{width:34px;height:34px;margin:0 auto;border:3px solid rgba(255,255,255,.18);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .error-panel{display:none;margin-top:20px;padding:15px;border:1px solid rgba(239,68,68,.38);border-radius:14px;background:rgba(239,68,68,.10);text-align:left}
+    .error-panel.is-visible{display:block}
+    .error-panel strong{display:block;margin-bottom:6px}
+    .action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .button{flex:1 1 150px;min-height:44px;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px 14px;color:var(--text);background:rgba(255,255,255,.07);font-weight:700;cursor:pointer}
+    .button.primary{border-color:var(--primary);background:var(--primary)}
+    .admin-shortcut{position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:15;display:none;align-items:center;gap:8px;min-height:42px;padding:9px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;color:white;background:rgba(3,11,22,.86);text-decoration:none;font-weight:700;backdrop-filter:blur(12px)}
+    @media(max-width:575px){.loading-card{padding:24px 20px;border-radius:20px}.brand-logo{width:64px;height:64px}}
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <iframe id="app-frame" class="app-frame" title="SIMPAN IPDN" allow="clipboard-read; clipboard-write; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  </main>
+
+  <a id="admin-shortcut" class="admin-shortcut" href="#" target="_blank" rel="noopener noreferrer">Admin</a>
+
+  <section id="loading-screen" class="loading-screen" aria-live="polite">
+    <div class="loading-card">
+      <img class="brand-logo" src="./logo.svg" alt="Logo SIMPAN IPDN" onerror="this.style.display='none'">
+      <h1 class="loading-title">SIMPAN IPDN</h1>
+      <p id="loading-copy" class="loading-copy">Memuat aplikasi dokumentasi multimedia…</p>
+      <div id="loader" class="loader" aria-hidden="true"></div>
+
+      <div id="error-panel" class="error-panel">
+        <strong>Aplikasi belum dapat ditampilkan.</strong>
+        <span>Pastikan URL Google Apps Script sudah benar dan Code.gs telah mengizinkan tampilan iframe.</span>
+        <div class="action-row">
+          <button id="retry-button" class="button primary" type="button">Coba Lagi</button>
+          <button id="direct-button" class="button" type="button">Buka Langsung</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    "use strict";
+
+    const APP_CONFIG = Object.freeze({
+      PUBLIC_APP_URL: "https://script.google.com/macros/s/AKfycbxuNexws8CwB5PlUW_xiHZ2wPH7sY3ZvlofroZ6m-t_h6gW_vOAnrlRoOBMSIcmAiXclg/exec",
+      ADMIN_APP_URL: "https://script.google.com/a/macros/ipdn.ac.id/s/AKfycbzfezxCTbbSioPE2ygBt3A4UwV9MI2RPWef0iN_YN0vHToQv9SQAvq7Tzw3vqfGhzq2gw/exec?mode=admin",
+      LOAD_TIMEOUT_MS: 20000
+    });
+
+    const frame = document.getElementById("app-frame");
+    const loadingScreen = document.getElementById("loading-screen");
+    const loadingCopy = document.getElementById("loading-copy");
+    const loader = document.getElementById("loader");
+    const errorPanel = document.getElementById("error-panel");
+    const retryButton = document.getElementById("retry-button");
+    const directButton = document.getElementById("direct-button");
+    const adminShortcut = document.getElementById("admin-shortcut");
+
+    let timeoutId = null;
+    let frameLoaded = false;
+
+    function isValidHttpsUrl(value) {
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === "https:";
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function showConfigurationError() {
+      loadingCopy.textContent = "URL Google Apps Script belum diatur.";
+      loader.style.display = "none";
+      errorPanel.classList.add("is-visible");
+    }
+
+    function showLoadError() {
+      if (frameLoaded) return;
+      loadingCopy.textContent = "Aplikasi membutuhkan waktu terlalu lama untuk dimuat.";
+      loader.style.display = "none";
+      errorPanel.classList.add("is-visible");
+    }
+
+    function hideLoadingScreen() {
+      frameLoaded = true;
+      clearTimeout(timeoutId);
+      loadingScreen.classList.add("is-hidden");
+    }
+
+    function loadApplication() {
+      frameLoaded = false;
+      loadingScreen.classList.remove("is-hidden");
+      errorPanel.classList.remove("is-visible");
+      loader.style.display = "block";
+      loadingCopy.textContent = "Memuat aplikasi dokumentasi multimedia…";
+
+      if (!isValidHttpsUrl(APP_CONFIG.PUBLIC_APP_URL)) {
+        showConfigurationError();
+        return;
+      }
+
+      frame.src = APP_CONFIG.PUBLIC_APP_URL;
+      timeoutId = setTimeout(showLoadError, APP_CONFIG.LOAD_TIMEOUT_MS);
+    }
+
+    frame.addEventListener("load", function () {
+      setTimeout(hideLoadingScreen, 250);
+    });
+
+    retryButton.addEventListener("click", function () {
+      frame.src = "about:blank";
+      setTimeout(loadApplication, 100);
+    });
+
+    directButton.addEventListener("click", function () {
+      if (isValidHttpsUrl(APP_CONFIG.PUBLIC_APP_URL)) {
+        window.open(APP_CONFIG.PUBLIC_APP_URL, "_blank", "noopener,noreferrer");
+      }
+    });
+
+    if (isValidHttpsUrl(APP_CONFIG.ADMIN_APP_URL)) {
+      adminShortcut.href = APP_CONFIG.ADMIN_APP_URL;
+    } else {
+      adminShortcut.remove();
+    }
+
+    loadApplication();
+  </script>
+</body>
+</html>
